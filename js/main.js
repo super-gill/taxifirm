@@ -29,6 +29,7 @@ function restore(snap){
     for(const c of S.cabs){
       if(c.driver&&c.driver.ref!=null)c.driver=S.drivers.find(x=>x.id===c.driver.ref)||null;
       if(c.job&&c.job.cust){const live=S.customers.find(x=>x.id===c.job.cust.id);if(live)c.job.cust=live}
+      if(c.next){c.next=S.customers.find(x=>x.id===c.next.id)||null}
     }
     S.choosing=null;
     if(ch){const cab=S.cabs.find(x=>x.id===ch.cabId);if(cab&&cab.job&&cab.job.cust)S.choosing={cab,cust:cab.job.cust,opts:ch.opts};else if(cab){cab.job=null;cab.state='idle'}}

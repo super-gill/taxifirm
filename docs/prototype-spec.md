@@ -1,6 +1,6 @@
 # Taxi Firm: Act 1 Prototype Spec
 
-As of v0.3.1. The original spec lives in Claude Docs; this copy reflects what the prototype actually does now.
+As of v0.4.0. The original spec lives in Claude Docs; this copy reflects what the prototype actually does now.
 
 ## Purpose
 
@@ -53,15 +53,23 @@ A small fictional market town, Wexmoor, split by the River Tove with two bridges
 - A cab with nobody on shift returns to the office.
 - With nobody on shift at all, the clock fast-forwards at about 45x to the next shift start.
 
-## Progression ladder
+## Progression ladder (Act 1)
 
 1. Rent an office
-2. Hire a driver for your cab (works your off hours)
+2. Hire a driver for your cab's off hours
 3. Hire an operator (bookings)
-4. Get a second cab (lease, or buy used)
-5. Grow to three cabs
-6. Hire a mechanic
-7. Take yourself off the rota (ends Act 1)
+4. Lease a second cab and staff it
+5. Build to four leased cabs, each with a hired driver
+6. Take yourself off the rota (ends Act 1)
+
+A mechanic is optional from three cabs. Buying cabs, new or used, opens in Act 2.
+
+## Bookings
+
+- The operator only accepts bookings the rota can cover, and turns the rest away.
+- With dispatch on, the nearest free driver takes a booking up to 30 minutes before pickup. If nobody is free, it is queued for whoever will drop off nearest.
+- You can assign any booking by hand, including to a busy driver as their next job, or take it off them.
+- The operator only sends you if you allow it.
 
 ## Economy
 
@@ -69,22 +77,33 @@ The player starts with £1,500 and one leased cab. Days run 06:00 to 06:00; fixe
 
 | Item | Cost or value |
 | --- | --- |
-| Fare | £3.00 flag + £1.60 per km |
+| Fare | £3.50 flag + £2.00 per km |
 | Booked fare | +20% |
 | Fuel | £0.12 per km |
-| Driver pay | 40% of each fare they take |
-| Car lease | £35 a day |
-| New cab | £4,500, then £8 a day upkeep |
-| Used cab | about £1,200–£2,200 by wear, then £8 a day |
-| Office | £500 deposit, then £60 a day |
-| Operator | £80 a day |
-| Mechanic | £90 a day |
+| Driver pay | 35% of each fare they take |
+| Car lease | £200 refundable deposit, then £30 a day |
+| Office | £500 deposit, then £40 a day |
+| Operator | £55 a day |
+| Mechanic | £60 a day |
+| New cab (Act 2) | £4,500, then £8 a day upkeep |
+| Used cab (Act 2) | about £1,200–£2,200 by wear, then £8 a day |
 | Repair | £150, or £60 with a mechanic |
 | Service | £40, or £15 with a mechanic |
 
+## Balance targets
+
+From `tools/harness.js`, 14 days, averaged over four seeds:
+
+| Strategy | Net per day | Cash after 14 days |
+| --- | --- | --- |
+| Stay solo | about £90 | about £2,800 |
+| Lease to four cabs, hire a mechanic | £120 early, £250 by day 10 | about £3,200 |
+
+Expanding costs you on day 1 and pays off from day 2 or 3. A used cab in Act 2 takes about a week of Act 1-sized profit.
+
 ## The rival
 
-Castle Cars starts with three cabs, competes for the same fares and grows slowly if it earns well. It never attacks.
+Castle Cars starts with three cabs, competes for the same fares and grows to at most five if it earns well. It never attacks.
 
 ## Parked for later
 

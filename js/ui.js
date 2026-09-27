@@ -1,13 +1,14 @@
 // ---------- panel ----------
 const $=id=>document.getElementById(id);
 function objective(){
-  if(S.act1)return'<b>Act 1 complete.</b> The firm runs without you. Keep growing, or put yourself back on the rota.';
+  const n=ourCabs().length,st=staffedCount();
+  if(S.act1)return'<b>Act 2:</b> buying cabs is open. A cab you own costs £8 a day to run instead of £35 to lease.';
   if(!S.office)return'<b>Next:</b> take fares and rent an office (£500 deposit). Park at a rank or click a waiting customer.';
   if(!hired().length)return'<b>Next:</b> hire a driver to work your cab while you\'re off shift.';
   if(!S.operator)return'<b>Next:</b> hire an operator so bookings start coming in.';
-  if(ourCabs().length<2)return'<b>Next:</b> get a second cab. Lease one, or buy used from the car market.';
-  if(ourCabs().length<3)return'<b>Next:</b> grow to three cabs and keep them rostered.';
-  return'<b>Next:</b> take yourself off the rota when the firm can run without you.';
+  if(n<2||st<2)return'<b>Next:</b> lease a second cab and put a driver on it.';
+  if(n<ACT1_CABS||st<ACT1_CABS)return'<b>Next:</b> build to '+ACT1_CABS+' leased cabs, each with a hired driver. You have '+st+' of '+ACT1_CABS+'.';
+  return'<b>Next:</b> take yourself off the rota. The firm can run without you now.';
 }
 function stateText(cab){
   const where=placeName(cab.node);
@@ -59,46 +60,57 @@ function strip(cab){
   const who=ds.length?ds.map(d=>'<span style="color:'+colOf(d)+'">'+esc(d.isPlayer?'You':d.name.split(' ')[0])+'</span> '+hhmm(SHIFTS[d.shift].s)+'–'+hhmm(SHIFTS[d.shift].e)).join(' · '):'<span class="muted">Nobody rostered</span>';
   return'<div class="strip" title="24-hour rota">'+segs+'<b style="left:'+(tod()/14.4).toFixed(1)+'%"></b></div><div class="strip-l"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div><div class="small">'+who+'</div>';
 }
-function paneFirm(){
-  const L=locked(),n=ourCabs().length,hasH=hired().length>0,slot=freeSlot();
-  const steps=[
-    {t:'Rent an office',d:'£500 deposit, then £60 a day. Lets you hire drivers and get more cabs.',done:S.office,avail:true,btn:B('rent','Rent office',{cls:'primary',dis:L||S.cash<500})},
-    {t:'Hire a driver for your cab',d:'They work your cab while you\'re off shift, so it earns round the clock. Drivers keep 40% of their fares.',done:hasH,avail:S.office,hint:'Pick someone in the rota section below.'},
-    {t:'Hire an operator',d:'£80 a day. Bookings start coming in, and regulars can call.',done:S.operator,avail:S.office,btn:B('operator','Hire operator',{cls:'primary',dis:L})},
-    {t:'Get a second cab',d:'Lease one for £35 a day, or buy a used one from the car market below.',done:n>=2,avail:S.office,hint:'See the car market below.'},
-    {t:'Grow to three cabs',d:'Each cab can carry two or three drivers across the day.',done:n>=3,avail:n>=2,hint:'See the car market below.',lockText:'Needs two cabs.'},
-    {t:'Hire a mechanic',d:'£90 a day. Slower wear, repairs £60 instead of £150, quicker services.',done:S.mechanic,avail:n>=3,btn:B('mechanic','Hire mechanic',{cls:'primary',dis:L}),lockText:'Needs three cabs.'},
-    {t:'Take yourself off the rota',d:'Set your shift to "Off the rota". This ends Act 1.',done:S.act1,avail:hasH,hint:'Change your shift in the rota below.',lockText:'Needs at least one hired driver.'}
+function staffRow(title,sub,status,btn){return'<div class="srow"><div class="stext"><b>'+title+'</b><span class="small muted">'+sub+'</span></div><div class="sact">'+(btn||'<span class="pill '+(status==='Hired'||status==='Rented'?'good':'')+'">'+status+'</span>')+'</div></div>'}
+function act1Steps(){
+  const n=ourCabs().length,st=staffedCount(),hasH=hired().length>0;
+  return[
+    {t:'Rent an office',done:S.office,where:'office'},
+    {t:'Hire a driver for your cab\'s off hours',done:hasH,where:'drivers'},
+    {t:'Hire an operator',done:S.operator,where:'staff'},
+    {t:'Lease a second cab and staff it',done:n>=2&&st>=2,where:n<2?'lease':'drivers'},
+    {t:'Build to '+ACT1_CABS+' staffed cabs ('+Math.min(st,ACT1_CABS)+' of '+ACT1_CABS+')',done:n>=ACT1_CABS&&st>=ACT1_CABS,where:n<ACT1_CABS&&st>=n?'lease':'drivers'},
+    {t:'Take yourself off the rota',done:S.act1,where:'rota'}
   ];
-  const nextI=steps.findIndex(s=>!s.done);
-  let h='';if(L)h+='<div class="lock"><b>On a job.</b> Business decisions unlock when you drop off. The rota can still be changed.</div>';
-  h+='<h2>Growing the firm</h2><ol class="ladder">';
-  steps.forEach((s,i)=>{
-    h+='<li class="step '+(s.done?'done':i===nextI?'next':'')+'"><span class="k">'+(s.done?'✓':i+1)+'</span><div class="body"><b>'+s.t+'</b><span class="small muted">'+s.d+'</span>';
-    if(!s.done&&s.avail&&s.btn)h+='<div class="row">'+s.btn+'</div>';
-    else if(!s.done&&s.avail&&s.hint&&i===nextI)h+='<span class="small" style="color:var(--cab)">'+s.hint+'</span>';
-    else if(!s.done&&!s.avail)h+='<span class="small muted">'+(s.lockText||'Locked until the step above is done.')+'</span>';
-    h+='</div></li>';
-  });
-  h+='</ol>';
-  h+='<h2>Rota</h2><p class="small muted">Everyone works a shift on one cab. Shifts on the same cab can\'t overlap. Changes apply straight away, or after the current job.</p><div class="fleet">';
-  for(const dr of S.drivers){
-    const active=S.cabs.find(c=>c.driver===dr);
-    const cabOpts='<option value=""'+(dr.cabId==null?' selected':'')+'>No cab</option>'+ourCabs().map(c=>{const clash=S.drivers.some(o=>o!==dr&&o.cabId===c.id&&overlaps(o.shift,dr.shift));return'<option value="'+c.id+'"'+(dr.cabId===c.id?' selected':'')+(clash?' disabled':'')+'>Cab '+c.no+(clash?' (clash)':'')+'</option>'}).join('');
-    h+='<div class="card" style="gap:6px"><div class="row spread"><b>'+(dr.isPlayer?'You':esc(dr.name)+' <span class="muted small">'+'★'.repeat(dr.skill)+'</span>')+'</b>'+(active?'<span class="pill good">On shift</span>':'<span class="pill">Off</span>')+'</div><div class="row"><select class="sel-in" data-act="setcab" data-id="'+dr.id+'" aria-label="Cab for '+esc(dr.name)+'">'+cabOpts+'</select><select class="sel-in" data-act="shift" data-id="'+dr.id+'" aria-label="Shift for '+esc(dr.name)+'">'+shiftOptions(dr)+'</select></div>'+(dr.isPlayer?'':'<div class="row">'+B('dismiss','Let go',{data:{id:dr.id},cls:'danger',dis:L})+'</div>')+'</div>';
+}
+function nextCard(L){
+  if(S.act1)return'<div class="card next"><div class="eyebrow">Act 2</div><h3>Buy your first cab</h3><p class="small muted">An owned cab costs £'+COSTS.upkeep+' a day to run instead of £'+COSTS.lease+' to lease. See Buying cabs below.</p></div>';
+  const steps=act1Steps(),i=steps.findIndex(x=>!x.done),st=steps[i];
+  const n=ourCabs().length,slot=freeSlot();let body='',act='';
+  switch(st.where){
+    case 'office':body='A base for your firm. You need it before you can hire anyone or lease more cabs. £'+COSTS.officeDeposit+' deposit, then £'+COSTS.rent+' a day.';act=B('rent','Rent office · £'+COSTS.officeDeposit,{cls:'primary',dis:L||S.cash<COSTS.officeDeposit});break;
+    case 'drivers':body=(slot?'Pick someone from Drivers looking for work below. They\'ll go on cab '+slot.cab.no+', '+shiftLabel(slot.sh)+'.':'Every cab is fully rostered.')+' Drivers keep '+Math.round(COSTS.commission*100)+'% of their fares.';act=S.candidates.length&&slot?B('hire','Hire '+esc(S.candidates[0].name)+' '+'★'.repeat(S.candidates[0].skill),{cls:'primary',data:{id:S.candidates[0].id},dis:L}):'';break;
+    case 'staff':body='Your operator takes phone bookings, which pay 20% more, and lets regulars call you back. £'+COSTS.operator+' a day.';act=B('operator','Hire operator · £'+COSTS.operator+'/day',{cls:'primary',dis:L});break;
+    case 'lease':body='£'+COSTS.leaseDeposit+' deposit (you get it back when you hand the cab back), then £'+COSTS.lease+' a day. You\'ll need a driver for it.';act=B('lease','Lease a cab · £'+COSTS.leaseDeposit+' deposit',{cls:'primary',dis:L||n>=6||S.cash<COSTS.leaseDeposit});break;
+    case 'rota':body='Set your own shift to "Off the rota" in the Rota section below. The firm then runs without you, and buying cabs opens up.';break;
   }
+  return'<div class="card next"><div class="eyebrow">Next step · '+(i+1)+' of '+steps.length+'</div><h3>'+st.t+'</h3><p class="small muted">'+body+'</p>'+(act?'<div class="row">'+act+'</div>':'')+(L&&act?'<span class="small muted">Locked while you\'re carrying a fare.</span>':'')+'</div>';
+}
+function paneFirm(){
+  const L=locked(),n=ourCabs().length,slot=freeSlot(),st=staffedCount();
+  let h='';
+  if(L)h+='<div class="lock"><b>On a job.</b> Renting, hiring and leasing unlock when you drop off. You can still change the rota.</div>';
+  h+=nextCard(L);
+  if(!S.act1){h+='<ul class="checklist">'+act1Steps().map(x=>'<li class="'+(x.done?'done':'')+'"><span>'+(x.done?'✓':'○')+'</span>'+x.t+'</li>').join('')+'</ul>'}
+  // office and staff
+  h+='<h2>Office and staff</h2><div class="card">';
+  h+=staffRow('Office','Market Street · £'+COSTS.rent+' a day',S.office?'Rented':'',S.office?'':B('rent','Rent · £'+COSTS.officeDeposit,{dis:L||S.cash<COSTS.officeDeposit}));
+  h+=staffRow('Operator','Takes bookings · £'+COSTS.operator+' a day',S.operator?'Hired':'Needs an office',S.operator||!S.office?'':B('operator','Hire',{dis:L}));
+  h+=staffRow('Mechanic','Slower wear, cheaper repairs · £'+COSTS.mechanic+' a day',S.mechanic?'Hired':(n<3?'Needs 3 cabs':''),S.mechanic||n<3?'':B('mechanic','Hire',{dis:L}));
   h+='</div>';
-  if(S.office){
-    h+='<div class="card"><b>Looking for work today</b>';
-    if(S.candidates.length){for(const c of S.candidates)h+='<div class="row spread"><span>'+esc(c.name)+' <span class="muted">'+'★'.repeat(c.skill)+'<span style="opacity:.3">'+'★'.repeat(5-c.skill)+'</span></span></span>'+B('hire','Hire',{data:{id:c.id},dis:L||!slot})+'</div>';
-      h+='<span class="small muted">'+(slot?'Next hire goes on cab '+slot.cab.no+', '+shiftLabel(slot.sh)+'.':'Every cab is fully rostered. Get another cab first.')+'</span>'}
-    else h+='<span class="small muted">No one else is looking today. New drivers turn up tomorrow.</span>';
-    h+='</div>';
-  }
-  h+='<h2>Fleet</h2><div class="fleet">';
+  // drivers
+  h+='<h2>Drivers looking for work</h2><div class="card">';
+  if(!S.office)h+='<span class="small muted">Rent an office before you hire drivers.</span>';
+  else if(!S.candidates.length)h+='<span class="small muted">No one else is looking today. New drivers turn up tomorrow.</span>';
+  else{for(const c of S.candidates)h+='<div class="srow"><div class="stext"><b>'+esc(c.name)+'</b><span class="small muted">'+'★'.repeat(c.skill)+'<span style="opacity:.3">'+'★'.repeat(5-c.skill)+'</span> · keeps '+Math.round(COSTS.commission*100)+'% of fares</span></div><div class="sact">'+B('hire','Hire',{data:{id:c.id},dis:L||!slot})+'</div></div>';
+    h+='<span class="small muted">'+(slot?'Next hire goes on cab '+slot.cab.no+', '+shiftLabel(slot.sh)+'. Change it in the rota.':'Every cab is fully rostered. Lease another cab first.')+'</span>'}
+  h+='</div>';
+  // fleet
+  h+='<div class="row spread"><h2>Fleet</h2><span class="small muted">'+n+' of 6 cabs · '+st+' with a hired driver</span></div>';
+  if(S.office)h+='<div class="row">'+B('lease','Lease a cab · £'+COSTS.leaseDeposit+' deposit, £'+COSTS.lease+'/day',{dis:L||n>=6||S.cash<COSTS.leaseDeposit})+'</div>';
+  h+='<div class="fleet">';
   for(const cab of ourCabs()){
     const dn=cab.driver?(cab.driver.isPlayer?'You':cab.driver.name):null;
-    h+='<div class="card" style="gap:6px"><div class="row spread"><b>Cab '+cab.no+' <span class="muted small">'+esc(cab.model||(cab.owned?'owned':'leased'))+'</span></b>'+statePill(cab)+'</div><div class="small">'+(dn?esc(dn)+' · ':'')+'<span class="muted">'+esc(cab.driver?stateText(cab):cab.route?'Heading back to the office':'Parked, nobody on shift')+'</span></div>'+strip(cab)+'<div class="row small muted">Wear '+wearBar(cab.wear)+'<span>'+(cab.owned?'Owned':'Leased £35/day')+'</span></div><div class="row">';
+    h+='<div class="card" style="gap:6px"><div class="row spread"><b>Cab '+cab.no+' <span class="muted small">'+esc(cab.model||(cab.owned?'owned':'leased'))+'</span></b>'+statePill(cab)+'</div><div class="small">'+(dn?esc(dn)+' · ':'')+'<span class="muted">'+esc(cab.driver?stateText(cab):cab.route?'Heading back to the office':'Parked, nobody on shift')+'</span></div>'+strip(cab)+'<div class="row small muted">Wear '+wearBar(cab.wear)+'<span>'+(cab.owned?'Owned':'Leased £'+COSTS.lease+'/day')+'</span></div><div class="row">';
     if(cab.driver)h+=B('select',S.selected===cab.id?'Selected':'Select on map',{data:{id:cab.id},dis:S.selected===cab.id});
     if(cab.driver&&!cab.driver.isPlayer)h+=B('mode',cab.mode==='auto'?'Mode: find work':'Mode: hold position',{data:{id:cab.id}});
     if(!cab.job&&cab.state!=='broken'&&cab.state!=='service'&&cab.wear>.15)h+=B('service','Service',{data:{id:cab.id},dis:L});
@@ -107,30 +119,44 @@ function paneFirm(){
     h+='</div></div>';
   }
   h+='</div>';
-  h+='<h2>Car market</h2>';
-  if(!S.office)h+='<p class="small muted">You need an office before you can take on more cabs.</p>';
+  // rota
+  h+='<h2>Rota</h2><p class="small muted">Everyone, you included, works one shift on one cab. Shifts on the same cab can\'t overlap. Changes apply straight away, or after the current job.</p><div class="fleet">';
+  for(const dr of S.drivers){
+    const active=S.cabs.find(c=>c.driver===dr);
+    const cabOpts='<option value=""'+(dr.cabId==null?' selected':'')+'>No cab</option>'+ourCabs().map(c=>{const clash=S.drivers.some(o=>o!==dr&&o.cabId===c.id&&overlaps(o.shift,dr.shift));return'<option value="'+c.id+'"'+(dr.cabId===c.id?' selected':'')+(clash?' disabled':'')+'>Cab '+c.no+(clash?' (clash)':'')+'</option>'}).join('');
+    const status=active?'<span class="pill good">On shift</span>':dr.shift==='off'?'<span class="pill">Off the rota</span>':dr.cabId==null?'<span class="pill warn">No cab</span>':'<span class="pill">Starts '+hhmm(SHIFTS[dr.shift].s)+'</span>';
+    h+='<div class="card" style="gap:6px"><div class="row spread"><b>'+(dr.isPlayer?'You':esc(dr.name)+' <span class="muted small">'+'★'.repeat(dr.skill)+'</span>')+'</b>'+status+'</div><div class="row"><select class="sel-in" data-act="setcab" data-id="'+dr.id+'" aria-label="Cab for '+esc(dr.name)+'">'+cabOpts+'</select><select class="sel-in" data-act="shift" data-id="'+dr.id+'" aria-label="Shift for '+esc(dr.name)+'">'+shiftOptions(dr)+'</select></div>'+(dr.isPlayer?'':'<div class="row">'+B('dismiss','Let go',{data:{id:dr.id},cls:'danger',dis:L})+'</div>')+'</div>';
+  }
+  h+='</div>';
+  // buying
+  h+='<h2>Buying cabs</h2>';
+  if(!S.act1)h+='<div class="card"><b>Opens in Act 2</b><span class="small muted">New and used cabs go on sale once the firm runs without you. For now, leasing is how you grow.</span></div>';
   else{
     const full=n>=6;
-    h+='<div class="card" style="gap:8px"><div class="row spread"><span>Lease a Skoda Octavia <span class="muted small">£35 a day, hand back any time</span></span>'+B('lease','Lease',{dis:L||full})+'</div><div class="row spread"><span>New Toyota Corolla <span class="muted small">no wear, £8 a day upkeep</span></span>'+B('buy','Buy £4,500',{dis:L||full||S.cash<4500})+'</div></div>';
-    if(S.market.length){for(const m of S.market)h+='<div class="card" style="gap:6px"><div class="row spread"><b>Used '+esc(m.model)+'</b><span class="num">'+money0(m.price)+'</span></div><div class="row small muted"><span>'+m.miles+'k miles</span>Wear '+wearBar(m.wear)+'<span>£8 a day upkeep</span></div><div class="row">'+B('buyused','Buy',{data:{id:m.id},dis:L||full||S.cash<m.price})+'</div></div>'}
+    h+='<div class="card" style="gap:8px"><div class="row spread"><span>New Toyota Corolla <span class="muted small">no wear, £'+COSTS.upkeep+' a day upkeep</span></span>'+B('buy','Buy £4,500',{dis:L||full||S.cash<4500})+'</div></div>';
+    if(S.market.length){for(const m of S.market)h+='<div class="card" style="gap:6px"><div class="row spread"><b>Used '+esc(m.model)+'</b><span class="num">'+money0(m.price)+'</span></div><div class="row small muted"><span>'+m.miles+'k miles</span>Wear '+wearBar(m.wear)+'<span>£'+COSTS.upkeep+' a day upkeep</span></div><div class="row">'+B('buyused','Buy',{data:{id:m.id},dis:L||full||S.cash<m.price})+'</div></div>'}
     else h+='<p class="small muted">Nothing else on the forecourt today. New stock tomorrow.</p>';
     if(full)h+='<p class="small muted">The office holds six cabs at most.</p>';
   }
   const leased=ourCabs().filter(c=>!c.owned).length,owned=n-leased;
-  const daily=leased*35+owned*8+(S.office?60:0)+(S.operator?80:0)+(S.mechanic?90:0);
+  const daily=leased*COSTS.lease+owned*COSTS.upkeep+(S.office?COSTS.rent:0)+(S.operator?COSTS.operator:0)+(S.mechanic?COSTS.mechanic:0);
   h+='<p class="small muted">Daily running costs, charged at 06:00: <span class="num" style="color:var(--text)">'+money0(daily)+'</span></p>';
   return h;
 }
 function paneBook(){
   if(!S.operator)return'<div class="card"><h3>No operator, no bookings</h3><p class="muted">Right now you only get street fares from ranks and people flagging you down. Rent an office and hire an operator to start taking booked jobs. They pay 20% more.</p></div>';
   const list=S.customers.filter(c=>c.type==='booked').sort((a,b)=>a.pickupAt-b.pickupAt);
-  let h='<div class="row spread"><h2>Bookings</h2>'+B('autodispatch',S.bookingsAuto?'Operator dispatch: on':'Operator dispatch: off')+'</div><p class="small muted">With dispatch on, your operator sends the nearest free driver 20 minutes before pickup. You only get a booking if you take it yourself. Missed bookings cost reputation.</p>';
+  let h='<h2>Bookings</h2><div class="card" style="gap:6px"><div class="row spread"><span>Operator sends drivers automatically</span>'+B('autodispatch',S.bookingsAuto?'On':'Off',{cls:S.bookingsAuto?'primary':''})+'</div><div class="row spread"><span class="small muted">Include you in the operator\'s picks</span>'+B('opyou',S.opUsesYou?'Yes':'No')+'</div><p class="small muted">With it on, the nearest free driver takes each booking up to 30 minutes before pickup. If nobody is free, it goes to whoever will drop off nearest, as their next job. Missed bookings cost reputation.</p></div>';
   if(!list.length)h+='<p class="muted">No bookings waiting. More come in with better reputation and more regulars.</p>';
   for(const c of list){
     const cab=c.claimedBy&&S.cabs.find(x=>x.id===c.claimedBy);
-    const fare=(3+1.6*pathStats(route(c.node,c.dest,byLen)).km)*1.2;
-    h+='<div class="card" style="gap:6px"><div class="row spread"><b class="num">'+hhmm(c.pickupAt)+'</b>'+(cab?'<span class="pill book">'+esc(isPlayerCab(cab)?'You':cab.driver.name)+'</span>':'<span class="pill warn">Unassigned</span>')+'</div><div class="small">'+esc(D[nodes[c.node].d].name)+' to '+esc(D[nodes[c.dest].d].name)+' · about <span class="num">'+money(fare)+'</span>'+(c.regular?' · <span class="muted">regular</span>':'')+'</div>';
-    if(!cab){const free=ourCabs().filter(x=>isPlayerCab(x)?freeCab(x):freeForWork(x));h+='<div class="row">'+(free.length?free.map(x=>B('assign',isPlayerCab(x)?'Take it myself':'Send '+esc(x.driver.name.split(' ')[0]),{data:{cust:c.id,cab:x.id}})).join(''):'<span class="small muted">No free cabs right now.</span>')+'</div>'}
+    const fare=fareFor(pathStats(route(c.node,c.dest,byLen)).km)*1.2;
+    const queued=cab&&cab.next===c;
+    h+='<div class="card" style="gap:6px"><div class="row spread"><b class="num">'+hhmm(c.pickupAt)+'</b>'+(cab?'<span class="pill book">'+esc(isPlayerCab(cab)?'You':cab.driver?cab.driver.name:'Cab '+cab.no)+(queued?' · next':'')+'</span>':'<span class="pill warn">Unassigned</span>')+'</div><div class="small">'+esc(D[nodes[c.node].d].name)+' to '+esc(D[nodes[c.dest].d].name)+' · about <span class="num">'+money(fare)+'</span>'+(c.regular?' · <span class="muted">regular</span>':'')+'</div>';
+    if(!cab){
+      const opts=ourCabs().filter(x=>x.driver&&x.state!=='broken'&&x.state!=='service'&&(isPlayerCab(x)?freeCab(x)||!x.next:freeForWork(x)||!x.next));
+      h+='<div class="row">'+(opts.length?opts.map(x=>{const free=isPlayerCab(x)?freeCab(x):freeForWork(x);const nm=isPlayerCab(x)?'Me':esc(x.driver.name.split(' ')[0]);return B('assign',free?(isPlayerCab(x)?'Take it myself':'Send '+nm):nm+' after this job',{data:{cust:c.id,cab:x.id}})}).join(''):'<span class="small muted">Nobody on shift can take it.</span>')+'</div>';
+    }else if(!(cab.state==='onFare'&&cab.job&&cab.job.cust===c))h+='<div class="row">'+B('unassign','Take it off '+esc(isPlayerCab(cab)?'me':cab.driver?cab.driver.name.split(' ')[0]:'them'),{data:{cust:c.id}})+'</div>';
     h+='</div>';
   }
   return h;
@@ -173,7 +199,7 @@ function renderOverlay(){
   }
   if(S.modal){
     const m=S.modal;ov.className='overlay center';
-    if(m.type==='act1'){ov.innerHTML='<div class="sheet" role="dialog"><div class="eyebrow">Act 1 complete</div><h3>Starline Cabs runs without you</h3><p class="muted">You started with one leased cab and a rival who owned the ranks. Now you\'ve got drivers on the road and an office taking bookings. In the full game this is where the tutorial ends and the rest of the map opens up.</p><div class="row">'+B('continue','Keep playing',{cls:'primary'})+'</div></div>';return}
+    if(m.type==='act1'){ov.innerHTML='<div class="sheet" role="dialog"><div class="eyebrow">Act 1 complete</div><h3>Starline Cabs runs without you</h3><p class="muted">You started with one leased cab and a rival who owned the ranks. Now '+ourCabs().length+' cabs are on the road with their own drivers, and the office takes bookings.</p><p class="muted"><b style="color:var(--text)">Act 2 opens:</b> you can now buy cabs, new or used, from the Firm tab. An owned cab costs £8 a day to run instead of £35 to lease.</p><div class="row">'+B('continue','Keep playing',{cls:'primary'})+'</div></div>';return}
     const last=S.history[0];
     if(m.type==='over'){ov.innerHTML='<div class="sheet" role="dialog"><div class="eyebrow">Day '+S.day+'</div><h3>Starline Cabs has gone under</h3><p class="muted">Three nights in a row in the red. The leasing company took the cabs back and Castle Cars has the town to itself.</p><div class="row">'+B('restart','Start again',{cls:'primary'})+'</div></div>';return}
     const f=m.fixed;

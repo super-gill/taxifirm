@@ -13,7 +13,7 @@ Play it: https://super-gill.github.io/taxifirm/
 - Off shift, you run the firm: rent an office, hire drivers and an operator, lease or buy cabs, hire a mechanic.
 - Everyone, you included, works a shift on one cab. Several drivers can share a cab if their shifts don't overlap.
 - When nobody is on shift, the clock fast-forwards to the next shift start.
-- Act 1 ends when you take yourself off the rota.
+- Act 1 is about leasing: build to four staffed cabs, then take yourself off the rota. Buying cabs opens in Act 2.
 
 ## Running it locally
 
@@ -40,8 +40,19 @@ Then open http://localhost:8765/. Opening `index.html` straight from disk also w
 | `js/ui.js` | Side panel, overlays, speed controls, input events |
 | `js/main.js` | Main loop, saving and loading, boot |
 | `docs/prototype-spec.md` | The prototype spec |
+| `tools/harness.js` | Headless balance harness |
 
 The simulation only ever sees the road graph in `town.js`, so the town can be swapped for a bigger city without rewriting the sim.
+
+## Balance harness
+
+`tools/harness.js` runs the real sim files in Node with no screen, following fixed strategies, and prints daily cash, profit and jobs:
+
+```
+node tools/harness.js all 14 4
+```
+
+Arguments are strategy (`solo`, `lease`, `lease-fast` or `all`), days and seeds. Set `COSTS=1` for a daily cost breakdown.
 
 ## Saves
 
