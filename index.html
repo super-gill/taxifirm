@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Taxi Firm</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><h1>Starline <span>Cabs</span></h1><small>Wexmoor</small></div>
+    <div class="meters">
+      <div class="meter"><i>Day</i><b id="mDay">1</b></div>
+      <div class="meter"><i>Time</i><b id="mTime">06:00</b></div>
+      <div class="meter cash"><i>Cash</i><b id="mCash">£1,500</b></div>
+      <div class="meter"><i>Reputation</i><b id="mRep">50</b></div>
+    </div>
+    <div class="speed" role="group" aria-label="Game speed">
+      <button id="sp0" data-speed="0" aria-pressed="false">Pause</button>
+      <button id="sp1" data-speed="1" aria-pressed="true">1×</button>
+      <button id="sp2" data-speed="2" aria-pressed="false">2×</button>
+      <button id="sp4" data-speed="4" aria-pressed="false">4×</button>
+      <button id="sp8" data-speed="8" aria-pressed="false">8×</button>
+    </div>
+    <div class="objective" id="objective"></div>
+  </header>
+  <div class="main">
+    <div class="mapwrap" id="mapwrap">
+      <canvas id="map" aria-label="Map of Wexmoor with cabs, customers and traffic"></canvas>
+      <div class="toasts" id="toasts"></div>
+      <div class="sel" id="sel"></div>
+      <div class="zoom" id="zoom"></div>
+      <div id="chatBox"></div>
+      <div id="overlay"></div>
+    </div>
+    <aside class="panel">
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="cab" aria-selected="true" id="tab-cab">Your cab</button>
+        <button role="tab" data-tab="firm" aria-selected="false" id="tab-firm">Firm</button>
+        <button role="tab" data-tab="book" aria-selected="false" id="tab-book">Bookings</button>
+        <button role="tab" data-tab="ledger" aria-selected="false" id="tab-ledger">Ledger</button>
+      </nav>
+      <div class="pane" id="pane"></div>
+    </aside>
+  </div>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/town.js"></script>
+<script src="js/state.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/map.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
